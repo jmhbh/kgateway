@@ -106,7 +106,8 @@ type Plugin struct {
 	// allowing Plugins to register handlers against collections, e.g. for status reporting
 	ContributesRegistration map[schema.GroupKind]func()
 	// extra has sync beyong primary resources in the collections above
-	ExtraHasSynced func() bool
+	ExtraHasSynced       func() bool
+	PostTranslationFuncs []func(postTranslationResources []*ir.PostTranslationResource) []ir.PostTranslationOutput
 }
 
 type (

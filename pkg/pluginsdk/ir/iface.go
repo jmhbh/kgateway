@@ -5,6 +5,10 @@ import (
 	"fmt"
 	"time"
 
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	clientset "github.com/kgateway-dev/kgateway/v2/pkg/client/clientset/versioned"
+
 	envoy_config_cluster_v3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoy_config_listener_v3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
@@ -186,8 +190,20 @@ func (s UnimplementedProxyTranslationPass) ResourcesToAdd(ctx context.Context) R
 	return Resources{}
 }
 
+type PostTranslationResource struct {
+	Data interface{}
+}
+
+type PostTranslationOutput struct {
+	Objects          []client.Object
+	ClientAddFunc    func(ctx context.Context, cli clientset.Interface, objs []client.Object)
+	ClientUpdateFunc func(ctx context.Context, cli clientset.Interface, objs []client.Object)
+	ClientDeleteFunc func(ctx context.Context, cli clientset.Interface, objs []client.Object)
+}
+
 type Resources struct {
-	Clusters []*envoy_config_cluster_v3.Cluster
+	Clusters                []*envoy_config_cluster_v3.Cluster
+	PostTranslationResource []*PostTranslationResource
 }
 
 type GwTranslationCtx struct{}

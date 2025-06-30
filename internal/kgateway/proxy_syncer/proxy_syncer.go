@@ -43,6 +43,7 @@ import (
 	"github.com/kgateway-dev/kgateway/v2/internal/kgateway/xds"
 	"github.com/kgateway-dev/kgateway/v2/pkg/logging"
 	plug "github.com/kgateway-dev/kgateway/v2/pkg/pluginsdk"
+	plugir "github.com/kgateway-dev/kgateway/v2/pkg/pluginsdk/ir"
 )
 
 // ProxySyncer orchestrates the translation of K8s Gateway CRs to xDS
@@ -66,6 +67,7 @@ type ProxySyncer struct {
 	backendPolicyReport     krt.Singleton[report]
 	mostXdsSnapshots        krt.Collection[GatewayXdsResources]
 	perclientSnapCollection krt.Collection[XdsSnapWrapper]
+	postTranslationOutputs  krt.Collection[plugir.PostTranslationOutput]
 
 	waitForSync []cache.InformerSynced
 	ready       atomic.Bool
@@ -90,6 +92,8 @@ type GatewayXdsResources struct {
 
 	// Listeners are items in the LDS response payload.
 	Listeners envoycache.Resources
+
+	PostTranslationResources []*plugir.PostTranslationResource
 }
 
 func (r GatewayXdsResources) ResourceName() string {
@@ -230,6 +234,15 @@ func (s *ProxySyncer) Init(ctx context.Context, krtopts krtutil.KrtOptions) {
 		return toResources(gw, *xdsSnap, rm)
 	}, krtopts.ToOptions("MostXdsSnapshots")...)
 
+	s.postTranslationOutputs = krt.NewManyCollection(s.mostXdsSnapshots, func(kctx krt.HandlerContext, res GatewayXdsResources) []plugir.PostTranslationOutput {
+		var outputs []plugir.PostTranslationOutput
+		for _, postTranslationFunc := range s.plugins.PostTranslationFuncs {
+			postTranslationOutput := postTranslationFunc(res.PostTranslationResources)
+			outputs = append(outputs, postTranslationOutput...)
+		}
+		return outputs
+	}, krtopts.ToOptions("PostTranslationOutputs")...)
+
 	epPerClient := NewPerClientEnvoyEndpoints(
 		krtopts,
 		s.uniqueClients,
@@ -274,6 +287,7 @@ func (s *ProxySyncer) Init(ctx context.Context, krtopts krtutil.KrtOptions) {
 		s.mostXdsSnapshots.HasSynced,
 		s.plugins.HasSynced,
 		s.translator.HasSynced,
+		s.postTranslationOutputs.HasSynced,
 	}
 }
 
@@ -397,6 +411,7 @@ func (s *ProxySyncer) Start(ctx context.Context) error {
 			s.syncListenerSetStatus(ctx, listenerSetStatusLogger, latestReport)
 			s.syncRouteStatus(ctx, routeStatusLogger, latestReport)
 			s.syncPolicyStatus(ctx, latestReport)
+			s.syncPostTranslationOutputs(ctx)
 		}
 	}()
 	latestBackendPolicyReportQueue := utils.NewAsyncQueue[reports.ReportMap]()
@@ -757,6 +772,41 @@ func (s *ProxySyncer) syncPolicyStatus(ctx context.Context, rm reports.ReportMap
 			logger.Error("error updating policy status", "error", err, "group_kind", gk, "resource_ref", nsName)
 		}
 	}
+}
+
+func (s *ProxySyncer) syncPostTranslationOutputs(ctx context.Context) {
+	stopwatch := utils.NewTranslatorStopWatch("PostTranslationOutputsSyncer")
+	stopwatch.Start()
+	defer stopwatch.Stop(ctx)
+
+	syncer := s.postTranslationOutputs.RegisterBatch(func(
+		events []krt.Event[plugir.PostTranslationOutput],
+		initialSync bool,
+	) {
+		var additions, updates, deletions []plugir.PostTranslationOutput
+		for _, e := range events {
+			latest := e.Latest()
+			switch e.Event {
+			case controllers.EventAdd:
+				additions = append(additions, latest)
+			case controllers.EventUpdate:
+				updates = append(updates, latest)
+			case controllers.EventDelete:
+				deletions = append(deletions, latest)
+			}
+		}
+
+		for _, output := range additions {
+			output.ClientAddFunc(ctx, s.commonCols.OurClient, output.Objects)
+		}
+		for _, output := range updates {
+			output.ClientUpdateFunc(ctx, s.commonCols.OurClient, output.Objects)
+		}
+		for _, output := range deletions {
+			output.ClientDeleteFunc(ctx, s.commonCols.OurClient, output.Objects)
+		}
+	}, false)
+	syncer.WaitUntilSynced(ctx.Done())
 }
 
 var opts = cmp.Options{
