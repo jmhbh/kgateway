@@ -130,11 +130,12 @@ func toResources(gw ir.Gateway, xdsSnap irtranslator.TranslationResult, r report
 			Namespace: gw.Obj.GetNamespace(),
 			Name:      gw.Obj.GetName(),
 		},
-		reports:      r,
-		ClustersHash: ch,
-		Clusters:     c,
-		Routes:       sliceToResources(xdsSnap.Routes),
-		Listeners:    sliceToResources(xdsSnap.Listeners),
+		reports:                  r,
+		ClustersHash:             ch,
+		Clusters:                 c,
+		Routes:                   sliceToResources(xdsSnap.Routes),
+		Listeners:                sliceToResources(xdsSnap.Listeners),
+		PostTranslationResources: xdsSnap.PostTranslationResources,
 	}
 }
 

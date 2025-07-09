@@ -21,6 +21,7 @@ import (
 	"github.com/kgateway-dev/kgateway/v2/internal/kgateway/translator/metrics"
 	"github.com/kgateway-dev/kgateway/v2/internal/kgateway/wellknown"
 	"github.com/kgateway-dev/kgateway/v2/pkg/logging"
+	plugir "github.com/kgateway-dev/kgateway/v2/pkg/pluginsdk/ir"
 	"github.com/kgateway-dev/kgateway/v2/pkg/pluginsdk/reporter"
 )
 
@@ -34,9 +35,10 @@ type Translator struct {
 type TranslationPassPlugins map[schema.GroupKind]*TranslationPass
 
 type TranslationResult struct {
-	Routes        []*envoy_config_route_v3.RouteConfiguration
-	Listeners     []*envoy_config_listener_v3.Listener
-	ExtraClusters []*envoy_config_cluster_v3.Cluster
+	Routes                   []*envoy_config_route_v3.RouteConfiguration
+	Listeners                []*envoy_config_listener_v3.Listener
+	ExtraClusters            []*envoy_config_cluster_v3.Cluster
+	PostTranslationResources []*plugir.PostTranslationResource
 }
 
 // Translate IR to gateway. IR is self contained, so no need for krt context
@@ -61,6 +63,7 @@ func (t *Translator) Translate(gw ir.GatewayIR, reporter reports.Reporter) Trans
 		if c != nil {
 			r := c.ResourcesToAdd(context.TODO())
 			res.ExtraClusters = append(res.ExtraClusters, r.Clusters...)
+			res.PostTranslationResources = append(res.PostTranslationResources, r.PostTranslationResource...)
 		}
 	}
 
