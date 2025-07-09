@@ -235,12 +235,21 @@ func (s *ProxySyncer) Init(ctx context.Context, krtopts krtutil.KrtOptions) {
 		return toResources(gw, *xdsSnap, rm)
 	}, krtopts.ToOptions("MostXdsSnapshots")...)
 
-	s.postTranslationOutputs = krt.NewManyCollection(s.mostXdsSnapshots, func(kctx krt.HandlerContext, res GatewayXdsResources) []plugir.PostTranslationOutput {
+	s.postTranslationOutputs = krt.NewManyFromNothing(func(kctx krt.HandlerContext) []plugir.PostTranslationOutput {
+		snapshots := krt.Fetch(kctx, s.mostXdsSnapshots)
+
+		var allPostTranslationResources []*plugir.PostTranslationResource
+		for _, snapshot := range snapshots {
+			allPostTranslationResources = append(allPostTranslationResources, snapshot.PostTranslationResources...)
+		}
+
+		// run aggregated post translation resources against all PostTranslationFuncs
 		var outputs []plugir.PostTranslationOutput
 		for _, postTranslationFunc := range s.plugins.PostTranslationFuncs {
-			postTranslationOutput := postTranslationFunc(res.PostTranslationResources)
+			postTranslationOutput := postTranslationFunc(allPostTranslationResources)
 			outputs = append(outputs, postTranslationOutput...)
 		}
+
 		return outputs
 	}, krtopts.ToOptions("PostTranslationOutputs")...)
 
