@@ -7,8 +7,6 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	clientset "github.com/kgateway-dev/kgateway/v2/pkg/client/clientset/versioned"
-
 	envoy_config_cluster_v3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoy_config_listener_v3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
@@ -16,6 +14,7 @@ import (
 	envoy_hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"google.golang.org/protobuf/proto"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/discovery"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/kgateway-dev/kgateway/v2/internal/kgateway/plugins"
@@ -194,11 +193,15 @@ type PostTranslationResource struct {
 	Data interface{}
 }
 
+type DiscoveryInterface interface {
+	Discovery() discovery.DiscoveryInterface
+}
+
 type PostTranslationOutput struct {
 	Objects          []client.Object
-	ClientAddFunc    func(ctx context.Context, cli clientset.Interface, objs []client.Object)
-	ClientUpdateFunc func(ctx context.Context, cli clientset.Interface, objs []client.Object)
-	ClientDeleteFunc func(ctx context.Context, cli clientset.Interface, objs []client.Object)
+	ClientAddFunc    func(ctx context.Context, cli DiscoveryInterface, objs []client.Object)
+	ClientUpdateFunc func(ctx context.Context, cli DiscoveryInterface, objs []client.Object)
+	ClientDeleteFunc func(ctx context.Context, cli DiscoveryInterface, objs []client.Object)
 }
 
 type Resources struct {
