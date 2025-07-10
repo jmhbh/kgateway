@@ -205,8 +205,12 @@ type PostTranslationOutput struct {
 	Key              string
 }
 
-func (p *PostTranslationOutput) GetKey() string {
-	return p.Key
+func (l PostTranslationOutput) Equals(other PostTranslationOutput) bool {
+	return l.Key == other.Key && len(l.Objects) == len(other.Objects)
+}
+
+func (l PostTranslationOutput) ResourceName() string {
+	return "PostTranslationOutput"
 }
 
 type Resources struct {
