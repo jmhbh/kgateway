@@ -202,6 +202,11 @@ type PostTranslationOutput struct {
 	ClientAddFunc    func(ctx context.Context, cli DiscoveryInterface, objs []client.Object)
 	ClientUpdateFunc func(ctx context.Context, cli DiscoveryInterface, objs []client.Object)
 	ClientDeleteFunc func(ctx context.Context, cli DiscoveryInterface, objs []client.Object)
+	Key              string
+}
+
+func (p *PostTranslationOutput) GetKey() string {
+	return p.Key
 }
 
 type Resources struct {
