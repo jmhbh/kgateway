@@ -794,6 +794,7 @@ func (s *ProxySyncer) syncPostTranslationOutputs(ctx context.Context) {
 		initialSync bool,
 	) {
 		var additions, updates, deletions []plugir.PostTranslationOutput
+		logger.Info("received post-translation outputs", "count", len(events))
 		for _, e := range events {
 			latest := e.Latest()
 			switch e.Event {
@@ -815,7 +816,7 @@ func (s *ProxySyncer) syncPostTranslationOutputs(ctx context.Context) {
 		for _, output := range deletions {
 			output.ClientDeleteFunc(ctx, s.commonCols.OurClient, output.Objects)
 		}
-	}, false)
+	}, true)
 	syncer.WaitUntilSynced(ctx.Done())
 }
 
